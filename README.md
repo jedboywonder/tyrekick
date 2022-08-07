@@ -1,5 +1,5 @@
 ## A test script for OpenWrt
-DO NOT RUN ON A DEVICE IN SERVICE OR A DEVICE WHERE YOU CARE ABOUT THE CURRENT CONFIG
+==DO NOT RUN ON A DEVICE IN SERVICE OR A DEVICE WHERE YOU CARE ABOUT THE CURRENT CONFIG==
 
 To run the script.  Do a fresh install on the router, or reset to the factor defaults with the firstboot command.  Connect the wan port to the internet and your laptop to the lan port.  SSH to the router.
 The following commands will download and run the script.
