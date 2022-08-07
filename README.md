@@ -19,7 +19,7 @@ You may want to change the country code or some other settings within the script
 ## FAQ
 ### How long should it take to run the script?  
 The small test uses a short delay between wireless tests and runs in about 5-12 minutes.
-The medium test uses a longer dealy between wireless tests and tests more wireless configurations.  It takes about 180 minutes to run.
+The medium test uses a longer dealy between wireless tests and tests more wireless configurations.  It takes about 130 minutes to run.
 
 ### How do DFS Channels and the time delay work?  
 If you run the medium test suite (-s medium) then DFS channels are included.  They take a minute or more to start and their is a delay to accomodate that.  You can adjust the delay (in seconds)  with the -d parameter.  If it is too short DFS channel tests may not pass.
