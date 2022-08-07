@@ -4,9 +4,9 @@
 To run the script.  Do a fresh install on the router, or reset to the factor defaults  with the firstboot command.  Connect the wan port to the internet and your laptop to the lan port.  SSH to the router.
 The following commands will download and run the script.
 
-wget https://raw.githubusercontent.com/jedboywonder/tyrekick/main/tyrekick.sh  
+`wget https://raw.githubusercontent.com/jedboywonder/tyrekick/main/tyrekick.sh  
 chmod +x tyrekick.sh  
-./tyrekick.sh -y  
+./tyrekick.sh -y  `
 
 ## Key Facts
 This is a script to perform tests on a fresh OpenWrt install; it assumes standard image like rc#  or formal release for current config.  
