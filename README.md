@@ -17,29 +17,29 @@ You may want to change the country code or some other settings within the script
 
 
 ## FAQ
-How long should it take to run the script?
+### How long should it take to run the script?  
 The small test uses a short delay between wireless tests and runs in about 12 minutes.
 The medium test uses a longer dealy between wireless tests and tests more wireless configurations.  It takes about zzz minutes to run.
 
-How do DFS Channels and the time delay work?
+### How do DFS Channels and the time delay work?  
 If you run the medium test suite (-s medium) then DFS channels are included.  They take a minute or more to start and their is a delay to accomodate that.  You can adjust the delay (in seconds)  with the -d parameter.  If it is too short DFS channel tests may not pass.
 
-How do you run only specific tests?
+### How do you run only specific tests?  
 You would need to edit the script.  Comment out lines near the bottom of the script.  For example, change test_ntp to #test_ntp.
 
-Can you run the script without an internet connection?
+### Can you run the script without an internet connection?  
 Yes, but any internet dependent tests will fail.
 
-What should I do when I'm done testing?
+### What should I do when I'm done testing?  
 Reset the device to factor defaults before configuring for other uses.
 
-How do you run in the background if you don't want to stay connected?
-(/root/tyrekick.sh -y >/dev/null 2>&1 )&
+### How do you run in the background if you don't want to stay connected?  
+>(/root/tyrekick.sh -y >/dev/null 2>&1 )&
 
-What about devices with only one network port?
-Devices sold as extenders may only have 1 physical network port.  An example is the Netgear EX6120.  For these devices a default OpenWrt config sets the port to the br-lan device.
-You can run the script without internet access, but can add internet functionality with a few changes.  Here is one way to do it.
-a) Using a different router with internet access (router 2) set the lan IP of router 2 to 192.168.1.2.  Router 2 should have multiple physical lan ports.
+### What about devices with only one network port?  
+Devices sold as extenders may only have 1 physical network port.  An example is the Netgear EX6120.  For these devices a default OpenWrt config sets the port to the br-lan device.  
+You can run the script without internet access, but can add internet functionality with a few changes.  Here is one way to do it.  
+> a) Using a different router with internet access (router 2) set the lan IP of router 2 to 192.168.1.2.  Router 2 should have multiple physical lan ports.
 b) Connect your laptop directly to the device under test (router 1).  
 c) Configure dhcp to turn on when rebooted.  Not strictly needed since you can always do a factor reset to gain access.  Or, access the router by setting a static IP (e.g. 192.168.1.99) on your laptop.
 Use the following commands:
