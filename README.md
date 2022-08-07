@@ -43,7 +43,7 @@ a) Using a different router with internet access (router 2) set the lan IP of ro
 b) Connect your laptop directly to the device under test (router 1).  
 c) Configure dhcp to turn on when rebooted.  Not strictly needed since you can always do a factor reset to gain access.  Or, access the router by setting a static IP (e.g. 192.168.1.99) on your laptop.  
 Use the following commands:  
-> cat << EOF > /etc/rc.local
+> cat << EOF > /etc/rc.local  
 uci set dhcp.lan.ignore='0'  
 exit 0  
 EOF  
