@@ -1,7 +1,7 @@
 #!/bin/sh
 # DO NOT RUN ON A DEVICE IN SERVICE OR A DEVICE WHERE YOU CARE ABOUT THE CURRENT CONFIG
 #
-# Big Friendly Test (bft)
+# Tyre Kick
 # this is a proof of concept and may lack the desired robustness
 #
 # this is a script to perform tests on a fresh OpenWrt install
@@ -9,12 +9,12 @@
 # snapshot or a already modified device may not work well
 # assumes some things like eth0 exists radio names like radio0 radio1, etc
 # not intended for device in use, config will get stomped
-# you may want to change the country code or some other settings
+# you may want to change the country code or some other settings within the script
 
 help_menu() {
   echo "Usage:
 
-  ${0##*/} [-h] [-s medium]
+  ${0##*/} [-y] [-h] [-s medium]
 
 Options:
 
@@ -26,47 +26,55 @@ Options:
 
   -d delay in seconds for radio before moving to next config
 
+  -y Confirm Yes that script is intended for fresh install and may change elements of existing config
+
 Examples:
 Show help:
    ${0##*/} -h
 
 Run default:
-   ${0##*/}
+   ${0##*/} -y
 
 Run small size
-   ${0##*/} -s small
+   ${0##*/} -y -s small
 
 Run medium size
-   ${0##*/} -s medium -d 120
+   ${0##*/} -y -s medium -d 180
   "
 }
 
+TKVERSION="v1"
 TSIZE="small"
+TYES=""
 # parse args
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -h) help_menu; exit 0;;
     -s) TSIZE="$2"; shift 2;;
     -d) TDELAY="$2"; shift 2;;
+    -y) TYES="yes"; shift 1;;
     -*) echo "unknown option: $1" >&2; exit 1;;
     *) handle_argument "$1"; shift 1;;
   esac
 done
 
-echo the size is $TSIZE
+#echo the size is $TSIZE
 if [[ "$TSIZE" != "small" && "$TSIZE" != "medium" ]] ; then
    echo "invalid size, only small and medium allowed"
    exit 1
-else
-   echo  the size is valid, $TSIZE
+fi
+
+if [[ "$TYES" != "yes" ]] ; then
+   echo "you must include the -y parameter to acknowledge that script is intended for fresh install and may change elements of existing config"
+   exit 1
 fi
 
 SLEEPX=1
-# SLEEPNO below 140 may not be enouch time for DFS channels to come up, ymmv
+# SLEEPNO below 160 may not be enouch time for DFS channels to come up, ymmv
 SLEEPNO=160
 # for small size shorten SLEEPNO to run faster
 if [[ "$TSIZE" == "small" ]];then
-   SLEEPNO=10
+   SLEEPNO=25
 fi
 if [[ -n "${TDELAY}" ]]; then
   SLEEPNO=${TDELAY}
@@ -75,7 +83,7 @@ fi
 #echo sleepno $SLEEPNO
 
 RUNID=$(date  '+%Y-%m-%d-%H-%M-%S')
-OUTDIR="/tmp/bft-$RUNID"
+OUTDIR="/tmp/tk-$RUNID"
 mkdir $OUTDIR
 
 cp /proc/cpuinfo $OUTDIR/
@@ -84,28 +92,46 @@ cp /etc/openwrt_release $OUTDIR/
 cp /etc/os-release $OUTDIR/
 iw list > $OUTDIR/iwlist.out
 ifconfig > $OUTDIR/ifconfig.out
+ip rule list > $OUTDIR/ip-rule.out
+ip route show table all > $OUTDIR/ip-route.out
+ip addr show > $OUTDIR/ip-addr.out
 
 MODEL="$(cat /proc/cpuinfo | grep machine | head -n 1 | awk -F: '{ print $2}' | sed 's/ //' | sed 's/ /-/g')"
 MACRAW="$(cat /sys/class/net/eth0/address  | sed 's/://g')"
 OUI="$(echo "${MACRAW}" | cut -c1-6)"
 
 RELVAL="$(cat /etc/openwrt_release | grep DISTRIB_RELEASE | awk -F= '{ print $2 }' | sed "s/'//g")"
-OUTLOG=$OUTDIR/bft-${MODEL}-${RELVAL}-${RUNID}.log
-DATA=$OUTDIR/bft-${MODEL}-${RELVAL}-${RUNID}.csv
+OUTLOG=$OUTDIR/tk-${MODEL}-${RELVAL}-${RUNID}.log
+DATA=$OUTDIR/tk-${MODEL}-${RELVAL}-${RUNID}.csv
 
-echo "model,OUI,testID,result" > $DATA
+echo "model,OUI,testID,result-${TKVERSION}" > $DATA
 
 echo Running Test on model:${MODEL} with eth0 MAC of ${MACRAW} and log file of $OUTLOG | tee -a  $OUTLOG
+logread > $OUTDIR/logread-initial
+sleep 5
+/etc/init.d/log restart
+logger -p daemon.notice -t tyrekick Running Test on model:${MODEL} with eth0 MAC of ${MACRAW} and log file of $OUTLOG
 cat /etc/openwrt_release | grep DISTRIB_RELEASE >> $OUTLOG
 cat /etc/openwrt_release | grep DISTRIB_TARGET  >> $OUTLOG
 
 WIFIKEY="$(cat /proc/sys/kernel/random/uuid | sed 's/[-]//g' | head -c 12 )"
 echo Key for WIFI test is:  ${WIFIKEY} | tee -a $OUTLOG
 
+if grep -sq DEVTYPE=dsa /sys/class/net/*/uevent; then
+ TDEVTYPE=dsa
+else
+ TDEVTYPE=nondsa
+fi
+echo TDEVTYPE=$TDEVTYPE
+
+NETLIST="$(ls /sys/class/net | grep ^lan | wc -l)"
+if [ "$NETLIST" -gt "0" ]; then
+  echo one or more lan devices found
+fi
+
 test_init() {
-logread > $OUTDIR/logread-initial
 echo "init "| tee -a  $OUTLOG
-    uci set system.@system[0].log_size='512'
+    uci set system.@system[0].log_size='1024'
 return 0
 }
 
@@ -127,9 +153,31 @@ echo "$MODEL,$OUI,opkg-unzip-000001,$RESULT" >> $DATA
 return 0
 }
 
+test_iperf3() {
+opkg update
+opkg install iperf3
+iperf3 -s -D && sleep2 && iperf3 -c 127.0.0.1 > ${OUTDIR}/iperf3.out
+IPERFD=""
+IPERFD="$(cat ${OUTDIR}/iperf3.out | grep 'iperf Done.')"
+IPERFCOUNT="$(wc -l ${OUTDIR}/iperf3.out | awk '{print $1}')"
+#echo IPERFD $IPERFD
+#echo IPERFCOUNT $IPERFCOUNT
+if [[ "$IPERFD" == "iperf Done."  && "$IPERFCOUNT" -gt "16" ]]
+then
+   RESULT=pass
+else
+   RESULT=fail
+fi
+
+echo "$MODEL,$OUI,iperf3-000001,$RESULT"
+echo "$MODEL,$OUI,iperf3-000001,$RESULT" >> $DATA
+
+return 0
+}
+
 test_extraoptions() {
 echo "test wireless extra options  " | tee -a  $OUTLOG
-
+logger -p daemon.notice -t tyrekick test_extraoptions start
 for radio in 'radio0' 'radio1' 'radio2' 'radio3'
 do
   echo "check for $radio"  | tee -a $OUTLOG
@@ -218,20 +266,23 @@ uci -q set wireless.${radio}.beacon_int='50'
 logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn
 logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn
 logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn
+logger -p daemon.notice -t netifd dngn
 
          uci commit wireless
          wifi reload
          let SLEEPTIME=SLEEPX*SLEEPNO
          sleep $SLEEPTIME
          #check test result
-         WRESFAIL="$(logread | tail -n 10 | grep netifd | grep Wireless | grep ${radio} | grep fail | head -n 1)"
+         NETPASS=""; WRESFAIL=""; WRESPASS=""
+         NETPASS="$(logread | grep netifd | tail -n 10 |  grep Network |  grep 'link is up'  | head -n 1)"
+         WRESFAIL="$(logread | grep netifd | tail -n 10 |  grep Wireless | grep ${radio} | grep fail | head -n 1)"
          #echo FAIL GREP $WRESFAIL
-         WRESPASS="$(logread | tail -n 10 | grep netifd | grep Wireless | grep 'is now up'  | head -n 1)"
+         WRESPASS="$(logread | grep netifd | tail -n 10 | grep Wireless | grep ${radio} | grep 'is now up'  | head -n 1)"
          #echo PASS GREP $WRESPASS
          if [ -n "$WRESFAIL" ]
          then
          RESULT=fail
-         elif [ -n "$WRESPASS" ]
+         elif [[ -n "$WRESPASS" && -n "$NETPASS" ]]
          then
          RESULT=pass
          else
@@ -239,7 +290,7 @@ logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn; 
          fi
          echo "$MODEL,$OUI,wireless-extra-options-${radio}-${BAND}-${tchan}-${tpow}-${tencr},$RESULT"
          echo "$MODEL,$OUI,wireless-extra-options-${radio}-${BAND}-${tchan}-${tpow}-${tencr},$RESULT" >> $DATA
-
+         logger -p daemon.notice -t tyrekick test_extraoptions ${radio} end
     uci -q set wireless.test_${radio}.disabled='1'
 
   else
@@ -253,12 +304,13 @@ uci commit wireless
 wifi down
 wifi up
 
+logger -p daemon.notice -t tyrekick test_extraoptions end
 return 0
 }
 
 test_allradioon() {
 echo "test all radios on  " | tee -a  $OUTLOG
-
+logger -p daemon.notice -t tyrekick test_allradioon start
 RADIOCOUNT=0
 for radio in 'radio0' 'radio1' 'radio2' 'radio3'
 do
@@ -311,20 +363,23 @@ echo RADIOCOUNT  $RADIOCOUNT
 logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn
 logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn
 logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn
-
+logger -p daemon.notice -t netifd dngn
          uci commit wireless
          wifi reload
          let SLEEPTIME=SLEEPX*SLEEPNO
          sleep $SLEEPTIME
          #check test result
-         WRESFAIL="$(logread | tail -n 10 | grep netifd | grep Wireless | grep radio | grep fail | head -n 1)"
+         NETPASS=""; WRESFAIL=""; WRESPASS=""
+         NETPASS="$(logread | grep netifd | tail -n 10 |  grep Network |  grep 'link is up'  | head -n 1)"
+         #WRESFAIL="$(logread | grep netifd | tail -n 10  | grep Wireless | grep ${radio} | grep fail | head -n 1)"
+         WRESFAIL="$(logread |  grep netifd | tail -n 10 | grep Wireless | grep radio | grep fail | head -n 1)"
          #echo FAIL GREP $WRESFAIL
-         WRESPASS="$(logread | tail -n 10 | grep netifd | grep Wireless | grep radio | grep 'is now up'  | wc -l )"
+         WRESPASS="$(logread | grep netifd | tail -n 10 |  grep Wireless | grep radio | grep 'is now up'  | wc -l | awk '{print $1}' )"
          #echo PASS GREP $WRESPASS
          if [ -n "$WRESFAIL" ]
          then
          RESULT=fail
-         elif [ "${RADIOCOUNT}" -eq "${WRESPASS}" ]
+         elif [[ "${RADIOCOUNT}" -eq "${WRESPASS}" && -n "$NETPASS" ]]
          then
          RESULT=pass
          else
@@ -347,7 +402,7 @@ done
 uci commit wireless
 wifi down
 wifi up
-
+logger -p daemon.notice -t tyrekick test_allradioon end
 return 0
 }
 
@@ -387,10 +442,10 @@ cat << ENDHERE >> /www2/index.html
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 <header>
-<title>BFT HTML TEST FILE TESTHTTP</title>
+<title>TYREKICK HTML TEST FILE TESTHTTP</title>
 </header>
 <body>
-<h3>BFT HTML TEST FILE FOR RUNID:${RUNID} <BR>FILE CREATED: $(date  '+%Y-%m-%d-%H-%M-%S')</html>
+<h3>TYREKICK HTML TEST FILE FOR RUNID:${RUNID} <BR>FILE CREATED: $(date  '+%Y-%m-%d-%H-%M-%S')</html>
 </body></html>
 ENDHERE
 
@@ -510,6 +565,7 @@ do
   if [ "$TRADIO" == "wifi-device" ]
   then
     echo testing $radio | tee -a $OUTLOG
+    logger -p daemon.notice -t tyrekick test_wireless $radio start
     uci -q set wireless.${radio}.disabled='0'
     BAND="$(uci get wireless.$radio.band)"
     #echo BAND $BAND
@@ -615,20 +671,22 @@ fi
 logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn
 logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn
 logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn
-
+logger -p daemon.notice -t netifd dngn
          uci commit wireless
          wifi reload
          let SLEEPTIME=SLEEPX*SLEEPNO
          sleep $SLEEPTIME
          #check test result
-         WRESFAIL="$(logread | tail -n 10 | grep netifd | grep Wireless | grep ${radio} | grep fail | head -n 1)"
+         NETPASS=""; WRESFAIL=""; WRESPASS=""
+         NETPASS="$(logread | grep netifd | tail -n 10 |  grep Network |  grep 'link is up'  | head -n 1)"
+         WRESFAIL="$(logread | grep netifd | tail -n 10  | grep Wireless | grep ${radio} | grep fail | head -n 1)"
          #echo FAIL GREP $WRESFAIL
-         WRESPASS="$(logread | tail -n 10 | grep netifd | grep Wireless | grep 'is now up'  | head -n 1)"
+         WRESPASS="$(logread | grep netifd | tail -n 10 |  grep Wireless | grep ${radio} | grep 'is now up'  | head -n 1)"
          #echo PASS GREP $WRESPASS
          if [ -n "$WRESFAIL" ]
          then
          RESULT=fail
-         elif [ -n "$WRESPASS" ]
+         elif [[ -n "$WRESPASS" && -n "$NETPASS" ]]
          then
          RESULT=pass
          else
@@ -636,12 +694,12 @@ logger -p daemon.notice -t netifd dngn; logger -p daemon.notice -t netifd dngn; 
          fi
          echo "$MODEL,$OUI,${radio}-${BAND}-${channel}-${TXPOWER}-${encr},$RESULT"
          echo "$MODEL,$OUI,${radio}-${BAND}-${channel}-${TXPOWER}-${encr},$RESULT" >> $DATA
-
+         logger -p daemon.notice -t tyrekick test_wireless $radio ${BAND}-${channel}-${TXPOWER}-${encr} end
          done
       done
     done
     uci -q set wireless.test_${radio}.disabled='1'
-
+    logger -p daemon.notice -t tyrekick test_wireless $radio end
   else
     echo ${radio} does not exist skip  | tee -a $OUTLOG
   fi
@@ -663,9 +721,13 @@ test_inet
 test_ntp
 test_http
 test_opkg
+test_iperf3
 test_allradioon
 test_extraoptions
 test_wireless
 logread > $OUTDIR/logread-final
-echo end tests $(date  '+%Y-%m-%d-%H-%M-%S') | tee -a $OUTLOG
-echo see $OUTDIR for collected files and test results .csv
+echo end tests   $(date  '+%Y-%m-%d-%H-%M-%S') | tee -a $OUTLOG
+echo Model=${MODEL}  Release=${RELVAL}
+echo see $OUTDIR\ for collected files and test results
+echo to see csv summary:
+echo cat $DATA
