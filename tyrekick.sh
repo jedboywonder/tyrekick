@@ -156,7 +156,7 @@ return 0
 test_iperf3() {
 opkg update
 opkg install iperf3
-iperf3 -s -D && sleep2 && iperf3 -c 127.0.0.1 > ${OUTDIR}/iperf3.out
+iperf3 -s -D && sleep 2 && iperf3 -c 127.0.0.1 > ${OUTDIR}/iperf3.out
 IPERFD=""
 IPERFD="$(cat ${OUTDIR}/iperf3.out | grep 'iperf Done.')"
 IPERFCOUNT="$(wc -l ${OUTDIR}/iperf3.out | awk '{print $1}')"
