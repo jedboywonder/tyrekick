@@ -1,14 +1,14 @@
-##A test script for OpenWrt
+## A test script for OpenWrt
 DO NOT RUN ON A DEVICE IN SERVICE OR A DEVICE WHERE YOU CARE ABOUT THE CURRENT CONFIG
 
 To run the script.  Do a fresh install on the router, or reset to the factor defaults with the firstboot command.  Connect the wan port to the internet and your laptop to the lan port.  SSH to the router.
 The following commands will download and run the script.
 
-wget https://raw.githubusercontent.com/jedboywonder/tyrekick/main/tyrekick.sh
-chmod +x tyrekick.sh
-./tyrekick.sh -y
+wget https://raw.githubusercontent.com/jedboywonder/tyrekick/main/tyrekick.sh  
+chmod +x tyrekick.sh  
+./tyrekick.sh -y  
 
-##Key Facts
+## Key Facts
 This is a script to perform tests on a fresh OpenWrt install; it assumes standard image like rc#  or formal release for current config.
 A snapshot or a already modified device may not work well.
 It assumes some things like eth0 exists radio names like radio0 radio1, etc.
@@ -16,7 +16,7 @@ It is not intended for device in use, config will get stomped.
 You may want to change the country code or some other settings within the script.
 
 
-##FAQ
+## FAQ
 How long should it take to run the script?
 The small test uses a short delay between wireless tests and runs in about 12 minutes.
 The medium test uses a longer dealy between wireless tests and tests more wireless configurations.  It takes about zzz minutes to run.
