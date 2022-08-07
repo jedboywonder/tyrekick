@@ -9,11 +9,11 @@ chmod +x tyrekick.sh
 ./tyrekick.sh -y  
 
 ## Key Facts
-This is a script to perform tests on a fresh OpenWrt install; it assumes standard image like rc#  or formal release for current config.
-A snapshot or a already modified device may not work well.
-It assumes some things like eth0 exists radio names like radio0 radio1, etc.
-It is not intended for device in use, config will get stomped.
-You may want to change the country code or some other settings within the script.
+This is a script to perform tests on a fresh OpenWrt install; it assumes standard image like rc#  or formal release for current config.  
+A snapshot or a already modified device may not work well.  
+It assumes some things like eth0 exists radio names like radio0 radio1, etc.  
+It is not intended for device in use, config will get stomped.  
+You may want to change the country code or some other settings within the script.  
 
 
 ## FAQ
@@ -39,7 +39,7 @@ How do you run in the background if you don't want to stay connected?
 What about devices with only one network port?
 Devices sold as extenders may only have 1 physical network port.  An example is the Netgear EX6120.  For these devices a default OpenWrt config sets the port to the br-lan device.
 You can run the script without internet access, but can add internet functionality with a few changes.  Here is one way to do it.
-`a) Using a different router with internet access (router 2) set the lan IP of router 2 to 192.168.1.2.  Router 2 should have multiple physical lan ports.
+a) Using a different router with internet access (router 2) set the lan IP of router 2 to 192.168.1.2.  Router 2 should have multiple physical lan ports.
 b) Connect your laptop directly to the device under test (router 1).  
 c) Configure dhcp to turn on when rebooted.  Not strictly needed since you can always do a factor reset to gain access.  Or, access the router by setting a static IP (e.g. 192.168.1.99) on your laptop.
 Use the following commands:
@@ -59,4 +59,4 @@ f) configure a DNS name server
 echo nameserver 1.1.1.1 > /tmp/resolv.conf
 g) now connect your laptop to a router 2 lan port and connect router 1 to a router 2 laptop
 h) SSH to router 1 (192.168.1.1) from your laptop and run the test
-i) Unplug the router 1 network cable before rebooting it since it will start an additional dhcp server on router 2's lan.`
+i) Unplug the router 1 network cable before rebooting it since it will start an additional dhcp server on router 2's lan.
