@@ -44,22 +44,22 @@ b) Connect your laptop directly to the device under test (router 1).
 c) Configure dhcp to turn on when rebooted.  Not strictly needed since you can always do a factor reset to gain access.  Or, access the router by setting a static IP (e.g. 192.168.1.99) on your laptop.  
 Use the following commands:  
 > cat << EOF > /etc/rc.local
-uci set dhcp.lan.ignore='0'
-exit 0
-EOF
+uci set dhcp.lan.ignore='0'  
+exit 0  
+EOF  
 
 d) on router 1, turn off dhcp  
 Use the following commands:  
-> uci set dhcp.lan.ignore='1'
-uci commit dhcp
-/etc/init.d/dnsmasq restart
+> uci set dhcp.lan.ignore='1'  
+uci commit dhcp  
+/etc/init.d/dnsmasq restart  
 
 e) add a temporary route to send internet traffic to router 2  
 Use the following command:  
-> ip route add 0.0.0.0/0 via 192.168.1.2 dev br-lan
+> ip route add 0.0.0.0/0 via 192.168.1.2 dev br-lan  
 
 f) configure a DNS name server  
-> echo nameserver 1.1.1.1 > /tmp/resolv.conf
+> echo nameserver 1.1.1.1 > /tmp/resolv.conf  
 
 g) now connect your laptop to a router 2 lan port and connect router 1 to a router 2 laptop  
 h) SSH to router 1 (192.168.1.1) from your laptop and run the test  
