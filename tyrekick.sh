@@ -86,6 +86,8 @@ RUNID=$(date  '+%Y-%m-%d-%H-%M-%S')
 OUTDIR="/tmp/tk-$RUNID"
 mkdir $OUTDIR
 
+tar -czf /tmp/config-${RUNID}.tgz -C /etc config/
+ubus call system board > $OUTDIR/ubus-system-board.out
 cp /proc/cpuinfo $OUTDIR/
 cp /proc/meminfo $OUTDIR/
 cp /etc/openwrt_release $OUTDIR/
@@ -95,6 +97,7 @@ ifconfig > $OUTDIR/ifconfig.out
 ip rule list > $OUTDIR/ip-rule.out
 ip route show table all > $OUTDIR/ip-route.out
 ip addr show > $OUTDIR/ip-addr.out
+top -b -n 3 > $OUTDIR/top.out
 
 MODEL="$(cat /proc/cpuinfo | grep machine | head -n 1 | awk -F: '{ print $2}' | sed 's/ //' | sed 's/ /-/g')"
 MACRAW="$(cat /sys/class/net/eth0/address  | sed 's/://g')"
@@ -109,7 +112,7 @@ echo "model,OUI,testID,result-${TKVERSION}" > $DATA
 echo Running Test on model:${MODEL} with eth0 MAC of ${MACRAW} and log file of $OUTLOG | tee -a  $OUTLOG
 logread > $OUTDIR/logread-initial
 sleep 5
-/etc/init.d/log restart
+#/etc/init.d/log restart
 logger -p daemon.notice -t tyrekick Running Test on model:${MODEL} with eth0 MAC of ${MACRAW} and log file of $OUTLOG
 cat /etc/openwrt_release | grep DISTRIB_RELEASE >> $OUTLOG
 cat /etc/openwrt_release | grep DISTRIB_TARGET  >> $OUTLOG
@@ -131,7 +134,7 @@ fi
 
 test_init() {
 echo "init "| tee -a  $OUTLOG
-    uci set system.@system[0].log_size='1024'
+    uci set system.@system[0].log_size='512'
 return 0
 }
 
@@ -725,8 +728,10 @@ test_iperf3
 test_allradioon
 test_extraoptions
 test_wireless
+logger -p daemon.notice -t tyrekick end of Test on model:${MODEL} with eth0 MAC of ${MACRAW} and log file of $OUTLOG
 logread > $OUTDIR/logread-final
-echo end tests   $(date  '+%Y-%m-%d-%H-%M-%S') | tee -a $OUTLOG
+echo end of Test on model:${MODEL} with eth0 MAC of ${MACRAW} and log file of $OUTLOG | tee -a $OUTLOG
+echo end test   $(date  '+%Y-%m-%d-%H-%M-%S') | tee -a $OUTLOG
 echo Model=${MODEL}  Release=${RELVAL}
 echo see $OUTDIR\ for collected files and test results
 echo to see csv summary:
